@@ -24,27 +24,57 @@ struct mpu_regs {
 	unsigned int cidr_reg;
 	unsigned int cidr;
 	unsigned int cidr_mask;
-	unsigned int wdt_mr_reg;
-	unsigned int sfr_l2cc_hramc_reg;
+	int (*init)(const struct mpu_regs *);
+	const void *data;
 };
+
+struct simple_data {
+	quint32 wdt_mr_reg;
+	quint32 wdt_mr;
+};
+
+static int simple_init(const struct mpu_regs *regs)
+{
+	const struct simple_data &data = *static_cast<const struct simple_data *>(regs->data);
+
+	// Disable Watchdog
+	qCInfo(sambaLogConnJlink, "Disabling watchdog");
+	JLINKARM_WriteU32(data.wdt_mr_reg, data.wdt_mr);
+	return 0;
+}
+
+static int sama5d2_init(const struct mpu_regs *regs)
+{
+	// Reconfigure L2-Cache as SRAM
+	JLINKARM_WriteU32(0xf8030058, 0);
+	return simple_init(regs);
+}
+
+/* WDT_MR Fields */
+#define WDT_MR_WDDIS (1 << 15)
+#define NS_WDT_MR_WDDIS (1 << 12)
+
+static const simple_data sam9xx5_data = { 0xfffffe44, WDT_MR_WDDIS };
+static const simple_data sam9x60_data = { 0xffffff84, NS_WDT_MR_WDDIS };
+static const simple_data sama5d2_data = { 0xf8048044, WDT_MR_WDDIS };
+static const simple_data sama5d4_data = { 0xfc068644, WDT_MR_WDDIS };
+static const simple_data sama5d3_data = { 0xfffffe44, WDT_MR_WDDIS };
+static const simple_data same70_data = { 0x400e1850, WDT_MR_WDDIS };
 
 /* Register definitions */
 /* Order is important: probing stops on first matching device */
 static const struct mpu_regs mpu_regs[] = {
-	{ JLINK_CORE_ARM9, "SAM9xx5", 0xfffff240, 0x819a05a1, 0xffffffff, 0xfffffe44, 0 },
-	{ JLINK_CORE_ARM9, "SAM9X60", 0xfffff240, 0x819b00a0, 0xffff00e0, 0xffffff84, 0 },
-	{ JLINK_CORE_CORTEX_A5, "SAMA5D2", 0xfc069000, 0x8a5c08c0, 0xffffffe0, 0xf8048044, 0xf8030058 },
-	{ JLINK_CORE_CORTEX_A5, "SAMA5D4", 0xfc069040, 0x8a5c07c0, 0xfffffff0, 0xfc068644, 0 },
-	{ JLINK_CORE_CORTEX_A5, "SAMA5D3", 0xffffee40, 0x8a5c07c2, 0xffffffff, 0xfffffe44, 0 },
-	{ JLINK_CORE_CORTEX_M7, "SAME70", 0x400e0940, 0xa1000000, 0xfff00000, 0x400e1850, 0 },
-	{ JLINK_CORE_CORTEX_M7, "SAMS70", 0x400e0940, 0xa1100000, 0xfff00000, 0x400e1850, 0 },
-	{ JLINK_CORE_CORTEX_M7, "SAMV71", 0x400e0940, 0xa1200000, 0xfff00000, 0x400e1850, 0 },
-	{ JLINK_CORE_CORTEX_M7, "SAMV70", 0x400e0940, 0xa1300000, 0xfff00000, 0x400e1850, 0 },
-	{ 0, NULL, 0, 0, 0, 0, 0, },
+	{ JLINK_CORE_ARM9, "SAM9xx5", 0xfffff240, 0x819a05a1, 0xffffffff, simple_init, &sam9xx5_data },
+	{ JLINK_CORE_ARM9, "SAM9X60", 0xfffff240, 0x819b00a0, 0xffff00e0, simple_init, &sam9x60_data },
+	{ JLINK_CORE_CORTEX_A5, "SAMA5D2", 0xfc069000, 0x8a5c08c0, 0xffffffe0, sama5d2_init, &sama5d2_data },
+	{ JLINK_CORE_CORTEX_A5, "SAMA5D4", 0xfc069040, 0x8a5c07c0, 0xfffffff0, simple_init, &sama5d4_data },
+	{ JLINK_CORE_CORTEX_A5, "SAMA5D3", 0xffffee40, 0x8a5c07c2, 0xffffffff, simple_init, &sama5d3_data },
+	{ JLINK_CORE_CORTEX_M7, "SAME70", 0x400e0940, 0xa1000000, 0xfff00000, simple_init, &same70_data },
+	{ JLINK_CORE_CORTEX_M7, "SAMS70", 0x400e0940, 0xa1100000, 0xfff00000, simple_init, &same70_data },
+	{ JLINK_CORE_CORTEX_M7, "SAMV71", 0x400e0940, 0xa1200000, 0xfff00000, simple_init, &same70_data },
+	{ JLINK_CORE_CORTEX_M7, "SAMV70", 0x400e0940, 0xa1300000, 0xfff00000, simple_init, &same70_data },
+	{ 0, NULL, 0, 0, 0, NULL, NULL, },
 };
-
-/* WDT_MR Fields */
-#define WDT_MR_WDDIS (1 << 15)
 
 /* CPSR Fields */
 #define ARM_MODE_SVC 0x13
@@ -268,14 +298,11 @@ void SambaConnectionJlinkHelper::open(const QString& deviceFamily)
 		{
 			qCInfo(sambaLogConnJlink, "Found Microchip %s device", mpu_regs[serie].name);
 
-			// Disable Watchdog
-			qCInfo(sambaLogConnJlink, "Disabling watchdog");
-			JLINKARM_WriteU32(mpu_regs[serie].wdt_mr_reg, WDT_MR_WDDIS);
-
-			if (mpu_regs[serie].sfr_l2cc_hramc_reg)
-			{
-				// Reconfigure L2-Cache as SRAM
-				JLINKARM_WriteU32(mpu_regs[serie].sfr_l2cc_hramc_reg, 0);
+			// Initialize the device
+			if (mpu_regs[serie].init && mpu_regs[serie].init(&mpu_regs[serie])) {
+				JLINKARM_Close();
+				emit connectionFailed("Device initialization failed");
+				return;
 			}
 		}
 		else

@@ -266,7 +266,7 @@ void SambaConnectionJlinkHelper::open(const QString& deviceFamily)
 		}
 		if (serie >= 0)
 		{
-			qCInfo(sambaLogConnJlink, "Found Atmel %s device", mpu_regs[serie].name);
+			qCInfo(sambaLogConnJlink, "Found Microchip %s device", mpu_regs[serie].name);
 
 			// Disable Watchdog
 			qCInfo(sambaLogConnJlink, "Disabling watchdog");

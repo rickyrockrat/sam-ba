@@ -282,6 +282,7 @@ void SambaConnectionJlinkHelper::open(const QString& deviceFamily)
 		{
 			JLINKARM_Close();
 			emit connectionFailed("Unsupported device");
+			return;
 		}
 
 		if (m_speed <= 0)

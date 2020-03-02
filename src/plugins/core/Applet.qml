@@ -250,8 +250,10 @@ Item {
 		}
 
 		// limit buffer size
-		if (bufferSize > 128*1024)
-			bufferSize = 128*1024
+		if (bufferSize > Script.appletBufferLimit) {
+			var fixedSize = Math.max(1, pageSize)
+			bufferSize = Math.floor(Script.appletBufferLimit / fixedSize) * fixedSize
+		}
 	}
 
 	/*!

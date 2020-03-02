@@ -80,6 +80,7 @@ SambaTool::SambaTool(int& argc, char** argv)
     : QCoreApplication(argc, argv),
       m_engine(this),
       m_traceLevel(3),
+      m_appletBufferLimit(128 * 1024),
       m_port(0),
       m_device(0),
       m_applet(0)
@@ -390,6 +391,7 @@ void SambaTool::run()
 	delete scriptProxy;
 
 	scriptContext->setProperty("traceLevel", m_traceLevel);
+	scriptContext->setProperty("appletBufferLimit", m_appletBufferLimit);
 
 	if ((m_status & (RunMonitor | RunApplet)) != 0)
 	{
@@ -455,6 +457,11 @@ quint32 SambaTool::parseArguments(const QStringList& arguments)
 	                                 "Set trace level to <trace_level>.",
 	                                 "trace_level");
 	parser.addOption(traceLevelOption);
+
+	QCommandLineOption appletBufferLimitOption(QStringList() << "L" << "applet-buffer-limit",
+	                                           "Set applet buffer limit to <SIZE> bytes (default 131072).",
+	                                           "SIZE");
+	parser.addOption(appletBufferLimitOption);
 
 	QCommandLineOption executeOption(QStringList() << "x" << "execute",
 	                                 "Execute script <script.qml>.",
@@ -526,6 +533,10 @@ quint32 SambaTool::parseArguments(const QStringList& arguments)
 
 	if (parser.isSet(traceLevelOption)) {
 		m_traceLevel = parser.value(traceLevelOption).toUInt();
+	}
+
+	if (parser.isSet(appletBufferLimitOption)) {
+		m_appletBufferLimit = parser.value(appletBufferLimitOption).toUInt(nullptr, 0);
 	}
 
 	// check options cardinality

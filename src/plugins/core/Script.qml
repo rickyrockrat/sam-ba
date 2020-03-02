@@ -40,4 +40,10 @@ Item {
 		\brief The trace level that will be used for applets
 	*/
 	property var traceLevel: 3
+
+	/*!
+		\qmlproperty int Script::appletBufferLimit
+		\brief The maxium size in bytes of applet buffers
+	*/
+	property var appletBufferLimit: 131072
 }

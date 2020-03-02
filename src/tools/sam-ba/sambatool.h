@@ -83,6 +83,7 @@ private:
 	quint32 m_status;
 
 	quint32 m_traceLevel;
+	quint32 m_appletBufferLimit;
 
 	QUrl m_userScript;
 	QStringList m_userScriptArguments;

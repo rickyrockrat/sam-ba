@@ -5,28 +5,12 @@ APPLET_DIR="$TOP_DIR/src/plugins/device"
 [ -n "$DEVICE" ] && APPLET_DIR="$APPLET_DIR/$DEVICE"
 BUILD_DIR="$TOP_DIR/softpack"
 
-[ -n "$GIT_REPOSITORY" ] || GIT_REPOSITORY="https://github.com/atmelcorp/atmel-software-package.git"
-[ -n "$GIT_COMMIT" ] || [ -n "$GIT_TAG" ] || GIT_TAG="v2.17"
-
 pushd $APPLET_DIR
 APPLETS=$(find . -type f -name "*-generic_*.bin")
 popd
 
 rm -fr $BUILD_DIR 2>/dev/null
-mkdir -p $BUILD_DIR || exit 1
-pushd $BUILD_DIR
-if [ -n "$GIT_COMMIT" ]; then
-    git clone $GIT_REPOSITORY . || exit 1
-    git checkout $GIT_COMMIT || exit 1
-elif [ -n "$GIT_TAG" ]; then
-    git clone --single-branch -b $GIT_TAG $GIT_REPOSITORY . || exit 1
-    GIT_COMMIT=$(git rev-list -n 1 $GIT_TAG)
-else
-    echo "missing either GIT_COMMIT or GIT_TAG"
-    popd
-    exit 1
-fi
-popd
+cp -r ../softpack $TOP_DIR
 
 REGEXP="^.*applet-\([a-z]\+\)_\([0-9a-z]\+\)-generic_\([a-z]\+\).bin$"
 for APPLET in $APPLETS; do
@@ -34,12 +18,10 @@ for APPLET in $APPLETS; do
     NAME=$(echo $APPLET | sed -e "s/$REGEXP/\1/")
     TARGET=$(echo $APPLET | sed -e "s/$REGEXP/\2/")-generic
     VARIANT=$(echo $APPLET | sed -e "s/$REGEXP/\3/")
-
-    make -C $BUILD_DIR/samba_applets/$NAME TARGET=$TARGET VARIANT=$VARIANT RELEASE=1 || exit 1
+    echo "********** BUILDING $NAME ($APPLET) *************"
+    V=1 make -C $BUILD_DIR/samba_applets/$NAME TARGET=$TARGET VARIANT=$VARIANT RELEASE=1 || exit 1
     cp -f $BUILD_DIR/samba_applets/$NAME/build/$TARGET/$VARIANT/applet-${NAME}_${TARGET}_${VARIANT}.bin $INSTALL_DIR/ || exit 1
 done
 
 rm -fr $BUILD_DIR
 
-# Update README.txt files to describe how to compile applets
-find $APPLET_DIR -type f -iname "README.txt" -exec sed -i -e "s/^Commit: [[:xdigit:]]\+$/Commit: $GIT_COMMIT/g" -e "s/git checkout [[:xdigit:]]\+$/git checkout $GIT_COMMIT/g" {} \+
